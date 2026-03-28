@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Revision Master | Portable Study Planner</title>
+    <script src='https://cdn.tailwindcss.com'></script>
+    <script src='https://unpkg.com/lucide@latest'></script>
+    <style>
+        /* Print Optimizations */
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white !important; padding: 0 !important; }
+            .card { 
+                border: 1px solid #e2e8f0 !important; 
+                box-shadow: none !important; 
+                break-inside: avoid;
+                margin-bottom: 2rem;
+            }
+            .status-red { background-color: #fef2f2 !important; -webkit-print-color-adjust: exact; }
+            .status-orange { background-color: #fffaf5 !important; -webkit-print-color-adjust: exact; }
+            .status-green { background-color: #f0fdf4 !important; -webkit-print-color-adjust: exact; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
+
+        .status-red { background-color: #fef2f2; }
+        .status-orange { background-color: #fffaf5; }
+        .status-green { background-color: #f0fdf4; }
+        .status-none { background-color: transparent; }
+
+        .transition-all { transition: all 0.2s ease-in-out; }
+        
+        .btn-log-study:active {
+            transform: scale(0.95);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f8fafc; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class='bg-slate-50 min-h-screen font-sans text-slate-900 pb-20'>
+
+    <div id='app' class='max-w-5xl mx-auto p-4 md:p-8'>
+        
+        <!-- SETUP SCREEN -->
+        <div id='setup-screen' class='hidden animate-in fade-in duration-500 max-w-xl mx-auto mt-16'>
+            <div class='bg-white rounded-3xl shadow-xl p-8 border border-slate-100'>
+                <div class='flex items-center gap-3 mb-6'>
+                    <div class='p-3 bg-teal-50 text-teal-600 rounded-2xl'>
+                        <i data-lucide='trending-up' class='w-8 h-8'></i>
+                    </div>
+                    <h1 class='text-2xl font-bold text-slate-800'>Planner Setup</h1>
+                </div>
+                
+                <div class='space-y-5'>
+                    <div class='grid grid-cols-1 gap-4'>
+                        <div>
+                            <label class='block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2'>Full Name</label>
+                            <input type='text' id='setup-name' placeholder='e.g. Alex Smith' class='w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 outline-none transition-all'>
+                        </div>
+                        <div>
+                            <label class='block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2'>Curriculum</label>
+                            <input type='text' id='setup-curriculum' placeholder='e.g. IBDP Year 13' class='w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 outline-none transition-all'>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class='block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3'>Subjects</label>
+                        <div id='setup-subjects-list' class='space-y-2 mb-4'></div>
+                        <button onclick='addSubjectInput()' class='text-sm font-bold text-teal-600 hover:text-teal-700 transition-colors flex items-center'>
+                            <i data-lucide='plus-circle' class='w-4 h-4 mr-1.5'></i> Add Subject
+                        </button>
+                    </div>
+
+                    <button onclick='saveInitialSetup()' class='w-full bg-teal-600 text-white font-bold py-4 rounded-2xl hover:bg-teal-700 transition-all shadow-lg shadow-teal-100 flex justify-center items-center gap-2'>
+                        Generate Planner <i data-lucide='sparkles' class='w-4 h-4'></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN DASHBOARD -->
+        <div id='dashboard' class='hidden'>
+            <header class='flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6 no-print'>
+                <div>
+                    <p id='display-curriculum' class='text-teal-600 font-bold uppercase tracking-[0.2em] text-[10px] mb-1'></p>
+                    <h1 id='display-name' class='text-3xl font-bold text-slate-800 tracking-tight'>Revision Dashboard</h1>
+                </div>
+                <div class='flex flex-wrap gap-2'>
+                    <button onclick='downloadPortableVersion()' class='flex items-center bg-teal-600 px-5 py-2.5 rounded-xl text-xs font-bold text-white hover:bg-teal-700 transition-all shadow-md shadow-teal-100'>
+                        <i data-lucide='save' class='w-4 h-4 mr-2'></i> Save Portable App
+                    </button>
+                    <button onclick='window.print()' class='flex items-center bg-white border border-slate-200 px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all'>
+                        <i data-lucide='printer' class='w-4 h-4 mr-2'></i> Print PDF
+                    </button>
+                    <button onclick='resetApp()' class='p-2.5 text-slate-300 hover:text-rose-400 transition-all' title='Reset Data'>
+                        <i data-lucide='trash-2' class='w-5 h-5'></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Concise Instructions -->
+            <div id='help-box' class='bg-slate-800 text-slate-200 p-6 rounded-3xl mb-10 no-print relative shadow-xl'>
+                <div class='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                    <div class='space-y-3'>
+                        <h3 class='text-teal-400 font-bold text-sm uppercase tracking-widest flex items-center gap-2'>
+                            <i data-lucide='info' class='w-4 h-4'></i> Planner Basics
+                        </h3>
+                        <ul class='text-sm space-y-2 opacity-90'>
+                            <li class='flex items-start gap-2'><i data-lucide='check' class='w-4 h-4 mt-0.5 text-teal-500'></i> Rename existing topics or add new ones as required by your syllabus.</li>
+                            <li class='flex items-start gap-2'><i data-lucide='check' class='w-4 h-4 mt-0.5 text-teal-500'></i> Track confidence: 🔴 (Focus), 🟠 (Building), 🟢 (Mastery).</li>
+                            <li class='flex items-start gap-2'><i data-lucide='check' class='w-4 h-4 mt-0.5 text-teal-500'></i> Log sessions to keep your 'Last Reviewed' dates fresh.</li>
+                        </ul>
+                    </div>
+                    <div class='bg-slate-700/50 p-4 rounded-2xl border border-slate-600'>
+                        <h3 class='text-amber-400 font-bold text-sm uppercase tracking-widest flex items-center gap-2 mb-2'>
+                            <i data-lucide='alert-triangle' class='w-4 h-4'></i> Important: Save Progress
+                        </h3>
+                        <p class='text-xs leading-relaxed opacity-90 mb-2'>
+                            Clearing your browser cache will erase your data. <strong>Use 'Save Portable App' frequently</strong> to download a permanent file and save your progress.
+                        </p>
+                        <p class='text-xs leading-relaxed opacity-90 italic'>
+                            To use this on another device (like your phone), simply email the saved file to yourself and open it in any mobile browser.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class='grid grid-cols-2 md:grid-cols-4 gap-4 mb-12'>
+                <div class='bg-white p-5 rounded-2xl border border-slate-100 shadow-sm'>
+                    <p class='text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1'>Total Topics</p>
+                    <p id='stat-total' class='text-2xl font-bold text-slate-700'>0</p>
+                </div>
+                <div class='bg-rose-50/50 p-5 rounded-2xl border border-rose-100 shadow-sm'>
+                    <p class='text-rose-400 text-[10px] font-bold uppercase tracking-wider mb-1'>Needs Focus</p>
+                    <p id='stat-red' class='text-2xl font-bold text-rose-600'>0</p>
+                </div>
+                <div class='bg-amber-50/50 p-5 rounded-2xl border border-amber-100 shadow-sm'>
+                    <p class='text-amber-400 text-[10px] font-bold uppercase tracking-wider mb-1'>Building</p>
+                    <p id='stat-orange' class='text-2xl font-bold text-amber-600'>0</p>
+                </div>
+                <div class='bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100 shadow-sm'>
+                    <p class='text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-1'>Mastered</p>
+                    <p id='stat-green' class='text-2xl font-bold text-emerald-600'>0</p>
+                </div>
+            </div>
+
+            <div id='subjects-container' class='space-y-12'></div>
+
+            <div class='mt-16 pt-8 border-t border-slate-200 no-print flex justify-center'>
+                <button onclick='openManageModal()' class='flex items-center gap-2 bg-slate-800 text-white px-8 py-4 rounded-2xl font-bold hover:bg-slate-900 transition-all shadow-lg'>
+                    <i data-lucide='settings-2' class='w-5 h-5'></i> Modify Subject List
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MANAGE SUBJECTS MODAL -->
+    <div id='manage-modal' class='fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden items-center justify-center p-4'>
+        <div class='bg-white w-full max-w-sm rounded-3xl shadow-2xl p-8'>
+            <div class='flex justify-between items-center mb-6'>
+                <h3 class='text-lg font-bold'>Manage Subjects</h3>
+                <button onclick='closeManageModal()' class='text-slate-300 hover:text-slate-500'><i data-lucide='x' class='w-5 h-5'></i></button>
+            </div>
+            <div id='modal-subject-list' class='space-y-2 mb-6 max-h-60 overflow-y-auto pr-2'></div>
+            <div class='flex gap-2'>
+                <input type='text' id='new-subject-name' placeholder='New Subject' class='flex-1 p-3 rounded-xl border border-slate-200 text-sm outline-none'>
+                <button onclick='addNewSubject()' class='bg-teal-600 text-white p-3 rounded-xl hover:bg-teal-700'><i data-lucide='plus' class='w-5 h-5'></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOTIFICATION BOX -->
+    <div id='toast' class='fixed bottom-8 right-8 bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl transform translate-y-24 transition-transform duration-300 z-[100] flex items-center gap-3'>
+        <span id='toast-message' class='font-bold text-xs'></span>
+    </div>
+
+    <script id='app-data-payload'>
+        window.PRESET_DATA = null; 
+    </script>
+
+    <script>
+        let appData = null;
+        const colorPalette = [
+            { bg: 'bg-teal-600' }, { bg: 'bg-slate-600' }, { bg: 'bg-cyan-700' },
+            { bg: 'bg-emerald-700' }, { bg: 'bg-sky-700' }, { bg: 'bg-stone-600' }
+        ];
+
+        window.onload = () => {
+            // CRITICAL FIX: Determine if this is a fresh template or a user's saved file
+            if (window.PRESET_DATA) {
+                // If it's a student's saved file, ALWAYS use that data
+                appData = window.PRESET_DATA;
+                // We DON'T auto-save to storage here to avoid contaminating 
+                // other files unless the student starts editing
+            } else {
+                // It's the blank template. Only load from storage if the user explicitly 
+                // started their own session in this specific browser instance.
+                const saved = localStorage.getItem('rev_planner_v2');
+                if (saved) appData = JSON.parse(saved);
+            }
+
+            if (appData) {
+                renderDashboard();
+            } else {
+                showSetup();
+            }
+            lucide.createIcons();
+        };
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').innerText = msg;
+            toast.classList.remove('translate-y-24');
+            setTimeout(() => toast.classList.add('translate-y-24'), 3000);
+        }
+
+        function showSetup() {
+            document.getElementById('setup-screen').classList.remove('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('setup-subjects-list').innerHTML = '';
+            ['Mathematics', 'English Literature', 'Sciences'].forEach(s => addSubjectInput(s));
+        }
+
+        function addSubjectInput(val = '') {
+            const container = document.getElementById('setup-subjects-list');
+            const div = document.createElement('div');
+            div.className = 'flex gap-2';
+            div.innerHTML = `
+                <input type='text' value='${val}' class='subject-setup-input flex-1 p-3 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-teal-500' placeholder='Subject Title'>
+                <button onclick='this.parentElement.remove()' class='p-3 text-slate-300 hover:text-rose-500'><i data-lucide='minus-circle' class='w-5 h-5'></i></button>
+            `;
+            container.appendChild(div);
+            lucide.createIcons();
+        }
+
+        function saveInitialSetup() {
+            const name = document.getElementById('setup-name').value.trim();
+            const curriculum = document.getElementById('setup-curriculum').value.trim();
+            const subInputs = document.querySelectorAll('.subject-setup-input');
+            
+            if (!name) { showToast('Please enter your name'); return; }
+            
+            const subjects = [];
+            subInputs.forEach((input, idx) => {
+                const sName = input.value.trim();
+                if (sName) {
+                    subjects.push({
+                        id: 's_' + Date.now() + idx,
+                        name: sName,
+                        colorClass: colorPalette[idx % colorPalette.length].bg,
+                        topics: [{ id: 't_1', name: 'Syllabus Overview', status: 'none', lastReviewed: '' }]
+                    });
+                }
+            });
+
+            appData = { name, curriculum: curriculum || 'Revision', subjects };
+            saveToStorage();
+            renderDashboard();
+        }
+
+        function saveToStorage() {
+            if (appData) {
+                localStorage.setItem('rev_planner_v2', JSON.stringify(appData));
+            }
+        }
+
+        function renderDashboard() {
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            document.getElementById('display-name').innerText = `${appData.name}'s Planner`;
+            document.getElementById('display-curriculum').innerText = appData.curriculum;
+
+            const container = document.getElementById('subjects-container');
+            container.innerHTML = '';
+
+            let stats = { total: 0, red: 0, orange: 0, green: 0 };
+
+            appData.subjects.forEach(subject => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-3xl border border-slate-100 overflow-hidden card shadow-sm';
+                
+                let rows = '';
+                subject.topics.forEach(topic => {
+                    stats.total++;
+                    if (topic.status !== 'none') stats[topic.status]++;
+                    
+                    const dateDisplay = topic.lastReviewed 
+                        ? new Date(topic.lastReviewed).toLocaleDateString('en-GB', {day:'2-digit', month:'short'}) 
+                        : '---';
+
+                    rows += `
+                        <tr class='status-${topic.status} group transition-colors duration-300'>
+                            <td class='p-4 border-b border-slate-50'>
+                                <input type='text' value='${topic.name}' 
+                                    oninput="updateTopic('${subject.id}', '${topic.id}', 'name', this.value)"
+                                    class='bg-transparent w-full text-sm font-medium outline-none focus:text-teal-600'
+                                    placeholder='Enter topic name...'>
+                            </td>
+                            <td class='p-4 border-b border-slate-50 w-36'>
+                                <select onchange="updateTopic('${subject.id}', '${topic.id}', 'status', this.value)"
+                                    class='no-print w-full bg-white/40 border border-slate-200/40 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none cursor-pointer'>
+                                    <option value='none' ${topic.status === 'none' ? 'selected' : ''}>NOT STARTED</option>
+                                    <option value='red' ${topic.status === 'red' ? 'selected' : ''}>🔴 FOCUS</option>
+                                    <option value='orange' ${topic.status === 'orange' ? 'selected' : ''}>🟠 BUILDING</option>
+                                    <option value='green' ${topic.status === 'green' ? 'selected' : ''}>🟢 MASTERED</option>
+                                </select>
+                            </td>
+                            <td class='p-4 border-b border-slate-50 w-48'>
+                                <div class='flex items-center justify-between gap-2'>
+                                    <span class='text-[10px] font-bold text-slate-400 uppercase tracking-tighter'>${dateDisplay}</span>
+                                    <button onclick="logReview('${subject.id}', '${topic.id}')" class='no-print px-3 py-1 bg-white border border-slate-200 rounded-lg text-[9px] font-black uppercase hover:bg-teal-50 hover:text-teal-600 transition-all'>Log Session</button>
+                                </div>
+                            </td>
+                            <td class='p-4 border-b border-slate-50 w-8 text-right'>
+                                <button onclick="deleteTopic('${subject.id}', '${topic.id}')" class='no-print opacity-0 group-hover:opacity-100 text-slate-200 hover:text-rose-400 transition-all'>
+                                    <i data-lucide='x' class='w-3 h-3'></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                card.innerHTML = `
+                    <div class='${subject.colorClass} px-6 py-3 flex justify-between items-center text-white'>
+                        <h2 class='font-bold uppercase text-[11px] tracking-[0.2em]'>${subject.name}</h2>
+                        <button onclick="addTopic('${subject.id}')" class='no-print text-[9px] font-black bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 uppercase'>
+                            <i data-lucide='plus' class='w-3 h-3'></i> Add Topic
+                        </button>
+                    </div>
+                    <table class='w-full text-left border-collapse'>
+                        <tbody>${rows}</tbody>
+                    </table>
+                `;
+                container.appendChild(card);
+            });
+
+            document.getElementById('stat-total').innerText = stats.total;
+            document.getElementById('stat-red').innerText = stats.red;
+            document.getElementById('stat-orange').innerText = stats.orange;
+            document.getElementById('stat-green').innerText = stats.green;
+            lucide.createIcons();
+        }
+
+        function updateTopic(sId, tId, field, value) {
+            const s = appData.subjects.find(s => s.id === sId);
+            const t = s.topics.find(t => t.id === tId);
+            t[field] = value;
+            saveToStorage();
+            if (field === 'status') renderDashboard();
+        }
+
+        function logReview(sId, tId) {
+            const s = appData.subjects.find(s => s.id === sId);
+            const t = s.topics.find(t => t.id === tId);
+            t.lastReviewed = new Date().toISOString();
+            saveToStorage();
+            renderDashboard();
+            showToast('Session logged for ' + t.name);
+        }
+
+        function addTopic(sId) {
+            const s = appData.subjects.find(s => s.id === sId);
+            s.topics.push({
+                id: 't_' + Date.now(),
+                name: '',
+                status: 'none',
+                lastReviewed: ''
+            });
+            saveToStorage();
+            renderDashboard();
+        }
+
+        function deleteTopic(sId, tId) {
+            const s = appData.subjects.find(s => s.id === sId);
+            s.topics = s.topics.filter(t => t.id !== tId);
+            saveToStorage();
+            renderDashboard();
+        }
+
+        function openManageModal() {
+            const modal = document.getElementById('manage-modal');
+            const list = document.getElementById('modal-subject-list');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            list.innerHTML = '';
+            appData.subjects.forEach(s => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100';
+                div.innerHTML = `
+                    <span class='font-bold text-xs text-slate-600'>${s.name}</span>
+                    <button onclick="removeSubject('${s.id}')" class='text-rose-400 p-2 hover:bg-rose-50 rounded-lg'><i data-lucide='trash-2' class='w-4 h-4'></i></button>
+                `;
+                list.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+
+        function closeManageModal() {
+            document.getElementById('manage-modal').classList.add('hidden');
+            document.getElementById('manage-modal').classList.remove('flex');
+        }
+
+        function addNewSubject() {
+            const nameInput = document.getElementById('new-subject-name');
+            const name = nameInput.value.trim();
+            if (name) {
+                appData.subjects.push({
+                    id: 's_' + Date.now(),
+                    name: name,
+                    colorClass: colorPalette[appData.subjects.length % colorPalette.length].bg,
+                    topics: [{ id: 't_1', name: 'Topic 1', status: 'none', lastReviewed: '' }]
+                });
+                nameInput.value = '';
+                saveToStorage();
+                renderDashboard();
+                openManageModal(); 
+            }
+        }
+
+        function removeSubject(sId) {
+            if (confirm('Delete this subject and all its topics?')) {
+                appData.subjects = appData.subjects.filter(s => s.id !== sId);
+                saveToStorage();
+                renderDashboard();
+                openManageModal();
+            }
+        }
+
+        function resetApp() {
+            if (confirm('Delete all data? This cannot be undone.')) {
+                localStorage.removeItem('rev_planner_v2');
+                location.reload();
+            }
+        }
+
+        function downloadPortableVersion() {
+            // Force save current storage to appData variable before exporting
+            const htmlContent = document.documentElement.outerHTML;
+            const dataString = JSON.stringify(appData);
+            const dataPattern = /window\.PRESET_DATA = null;/;
+            
+            // Clean up potentially stale PRESET_DATA from the outerHTML if this is a nested save
+            let portableHtml = htmlContent.replace(/window\.PRESET_DATA = \{.*?\};/, 'window.PRESET_DATA = null;');
+            portableHtml = portableHtml.replace(dataPattern, `window.PRESET_DATA = ${dataString};`);
+            
+            const blob = new Blob([portableHtml], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            
+            const stamp = new Date().toISOString().slice(0,10);
+            const fileName = `Revision_Planner_${appData.name.replace(/\s+/g, '_')}_${stamp}.html`;
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showToast('App saved successfully');
+        }
+    </script>
+</body>
+</html>
